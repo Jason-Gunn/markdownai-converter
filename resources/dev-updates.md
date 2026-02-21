@@ -193,6 +193,7 @@ Use these thematic commits for cleaner history:
 ## Release Prep Artifacts (v0.1.0)
 - Release checklist created: `resources/release-checklist-v0.1.0.md`
 - Suggested release notes created: `resources/release-notes-v0.1.0.md`
+- Daily closeout handoff created: `resources/daily-closeout-2026-02-21.md`
 - QA pass summary:
   - Workspace diagnostics clean via editor checks.
   - GitHub repo and branch are active (`main`).
