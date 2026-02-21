@@ -51,6 +51,22 @@ class Settings
             'mdai-settings',
             'mdai_general_section'
         );
+
+        add_settings_field(
+            'mdai_enable_weekly_reports',
+            __('Enable weekly email reports', 'markdownai-converter'),
+            [__CLASS__, 'render_enable_weekly_reports_field'],
+            'mdai-settings',
+            'mdai_general_section'
+        );
+
+        add_settings_field(
+            'mdai_report_email',
+            __('Weekly report recipient email', 'markdownai-converter'),
+            [__CLASS__, 'render_report_email_field'],
+            'mdai-settings',
+            'mdai_general_section'
+        );
     }
 
     public static function maybe_seed_defaults(): void
@@ -66,6 +82,8 @@ class Settings
             'enable_tracking' => 1,
             'retention_days' => 90,
             'delete_data_on_uninstall' => 0,
+            'enable_weekly_reports' => 0,
+            'report_email' => sanitize_email((string) get_option('admin_email', '')),
         ];
     }
 
@@ -77,11 +95,17 @@ class Settings
         $retentionDays = isset($input['retention_days']) ? absint($input['retention_days']) : $defaults['retention_days'];
         $retentionDays = max(7, min(3650, $retentionDays));
         $deleteDataOnUninstall = isset($input['delete_data_on_uninstall']) ? 1 : 0;
+        $enableWeeklyReports = isset($input['enable_weekly_reports']) ? 1 : 0;
+
+        $emailInput = isset($input['report_email']) ? sanitize_email((string) $input['report_email']) : '';
+        $reportEmail = is_email($emailInput) ? $emailInput : (string) $defaults['report_email'];
 
         return [
             'enable_tracking' => $enableTracking,
             'retention_days' => $retentionDays,
             'delete_data_on_uninstall' => $deleteDataOnUninstall,
+            'enable_weekly_reports' => $enableWeeklyReports,
+            'report_email' => $reportEmail,
         ];
     }
 
@@ -119,6 +143,26 @@ class Settings
             <input type="checkbox" name="<?php echo esc_attr(Plugin::OPTION_SETTINGS); ?>[delete_data_on_uninstall]" value="1" <?php checked((int) $settings['delete_data_on_uninstall'], 1); ?> />
             <?php esc_html_e('Delete plugin tables and settings when uninstalling the plugin.', 'markdownai-converter'); ?>
         </label>
+        <?php
+    }
+
+    public static function render_enable_weekly_reports_field(): void
+    {
+        $settings = self::get_all();
+        ?>
+        <label>
+            <input type="checkbox" name="<?php echo esc_attr(Plugin::OPTION_SETTINGS); ?>[enable_weekly_reports]" value="1" <?php checked((int) $settings['enable_weekly_reports'], 1); ?> />
+            <?php esc_html_e('Email a weekly performance summary report.', 'markdownai-converter'); ?>
+        </label>
+        <?php
+    }
+
+    public static function render_report_email_field(): void
+    {
+        $settings = self::get_all();
+        ?>
+        <input type="email" class="regular-text" name="<?php echo esc_attr(Plugin::OPTION_SETTINGS); ?>[report_email]" value="<?php echo esc_attr((string) $settings['report_email']); ?>" />
+        <p class="description"><?php esc_html_e('Recipient address for scheduled weekly reports.', 'markdownai-converter'); ?></p>
         <?php
     }
 }

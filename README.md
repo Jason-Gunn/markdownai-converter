@@ -13,6 +13,9 @@ MarkdownAI Converter is a WordPress plugin that converts published content into 
 - Bot Activity page with filtering, sorting, and CSV export.
 - Rule-based content suggestions and scoring for optimization.
 - Export & Reports page with printable client performance report (PDF-ready via browser print).
+- Weekly email performance summaries (configurable recipient + schedule).
+- Period-over-period KPI deltas on Overview.
+- Manual “Send Test Weekly Report Now” action for instant email validation.
 - Demo data seeding (90 days) for fast testing.
 
 ## Security & Compatibility Focus

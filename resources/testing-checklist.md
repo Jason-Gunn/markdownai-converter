@@ -66,6 +66,7 @@ Run endpoint calls repeatedly (manual or script) to generate data:
 ## 9) Test Settings / Retention
 1. In **Settings**, change retention days and save.
 2. Disable tracking and verify new endpoint requests are no longer added to bot events.
+3. Enable **weekly email reports**, set recipient email, and save.
 
 ## 10) Test Export & Reports
 1. Open **MarkdownAI Converter → Export & Reports**.
@@ -74,12 +75,17 @@ Run endpoint calls repeatedly (manual or script) to generate data:
 4. Click **Generate Printable Report (PDF-ready)**.
 5. In the report page, click **Print / Save as PDF** and verify the output contains KPIs, trend graph, top pages, and top opportunities.
 
-## 11) Security Sanity Checks
+## 11) Test KPI Deltas + Weekly Email
+1. Open **MarkdownAI Converter → Overview** and confirm the second KPI row displays period-over-period delta values.
+2. Confirm the delta helper text shows the previous comparison date range.
+3. Trigger weekly report cron manually (or wait for WP-Cron) and verify email delivery to configured recipient.
+
+## 12) Security Sanity Checks
 - Non-admin user cannot access plugin admin pages.
 - Export endpoint rejects request without nonce/capability.
 - Unpublished/private post IDs return 404/403 from REST endpoint.
 
-## 12) Uninstall Behavior
+## 13) Uninstall Behavior
 1. Enable **Delete data on uninstall**.
 2. Uninstall plugin.
 3. Confirm options and custom tables are removed.

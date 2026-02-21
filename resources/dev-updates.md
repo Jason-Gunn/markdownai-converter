@@ -189,3 +189,11 @@ Use these thematic commits for cleaner history:
 
 ## Suggested Next Session Prompt (for LLM)
 "Continue MarkdownAI Converter from resources/dev-updates.md. Implement native PDF generation for client reports with secure admin action, add scheduled weekly report emails via WP-Cron, and add PHPUnit tests for suggestions scoring. Keep WordPress-native architecture and existing security checks."
+
+## Release Prep Artifacts (v0.1.0)
+- Release checklist created: `resources/release-checklist-v0.1.0.md`
+- Suggested release notes created: `resources/release-notes-v0.1.0.md`
+- QA pass summary:
+  - Workspace diagnostics clean via editor checks.
+  - GitHub repo and branch are active (`main`).
+  - CLI `php` executable unavailable in current shell, so `php -l` must be run in container/devcontainer for final CLI lint confirmation.
