@@ -1,0 +1,22 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Dependency directories
+vendor/
+node_modules/
+
+# WordPress/runtime artifacts
+*.log
+*.tmp
+wp-content/cache/
+
+# Build / coverage
+coverage/
+.phpunit.result.cache
+
+# Environment files
+.env
+.env.*
