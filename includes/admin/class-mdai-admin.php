@@ -104,6 +104,9 @@ class Admin
 
         $range = Analytics::sanitize_date_range($fromInput, $toInput);
         $kpis = Analytics::get_kpis($range['from_datetime'], $range['to_datetime']);
+        $comparison = Analytics::get_period_comparison($range);
+        $deltas = (array) ($comparison['deltas'] ?? []);
+        $previousRange = (array) ($comparison['previous_range'] ?? []);
         $topPages = Analytics::get_top_pages($range['from_datetime'], $range['to_datetime'], 10);
         $trend = Analytics::get_daily_trend($range['from_datetime'], $range['to_datetime']);
         $noticeAction = isset($_GET['mdai_notice']) ? sanitize_key(wp_unslash($_GET['mdai_notice'])) : '';
@@ -173,8 +176,25 @@ class Admin
                         <td><strong><?php echo esc_html(number_format_i18n($kpis['unique_posts'])); ?></strong></td>
                         <td><strong><?php echo esc_html(number_format_i18n($kpis['avg_latency_ms'])); ?></strong></td>
                     </tr>
+                    <tr>
+                        <td><?php echo esc_html(self::format_delta((array) ($deltas['total_hits'] ?? []))); ?></td>
+                        <td><?php echo esc_html(self::format_delta((array) ($deltas['unique_bot_families'] ?? []))); ?></td>
+                        <td><?php echo esc_html(self::format_delta((array) ($deltas['unique_posts'] ?? []))); ?></td>
+                        <td><?php echo esc_html(self::format_delta((array) ($deltas['avg_latency_ms'] ?? []))); ?></td>
+                    </tr>
                 </tbody>
             </table>
+            <p class="description" style="margin-top: -8px; margin-bottom: 16px;">
+                <?php
+                echo esc_html(
+                    sprintf(
+                        __('Delta row compares current period against previous period (%1$s to %2$s).', 'markdownai-converter'),
+                        (string) ($previousRange['from'] ?? ''),
+                        (string) ($previousRange['to'] ?? '')
+                    )
+                );
+                ?>
+            </p>
 
             <h2><?php esc_html_e('Daily Crawl Trend', 'markdownai-converter'); ?></h2>
             <?php if ($svg !== '') : ?>
@@ -615,6 +635,7 @@ class Admin
         $fromDate = isset($_GET['from_date']) ? sanitize_text_field(wp_unslash($_GET['from_date'])) : '';
         $toDate = isset($_GET['to_date']) ? sanitize_text_field(wp_unslash($_GET['to_date'])) : '';
         $range = Analytics::sanitize_date_range($fromDate, $toDate);
+        $noticeAction = isset($_GET['mdai_notice']) ? sanitize_key(wp_unslash($_GET['mdai_notice'])) : '';
 
         $csvUrl = wp_nonce_url(
             add_query_arg(
@@ -631,6 +652,12 @@ class Admin
         <div class="wrap">
             <h1><?php esc_html_e('Export & Reports', 'markdownai-converter'); ?></h1>
             <p><?php esc_html_e('Export crawl data or generate a printable client performance report.', 'markdownai-converter'); ?></p>
+
+            <?php if ($noticeAction === 'test_weekly_sent') : ?>
+                <div class="notice notice-success is-dismissible"><p><?php esc_html_e('Test weekly report email sent.', 'markdownai-converter'); ?></p></div>
+            <?php elseif ($noticeAction === 'test_weekly_failed') : ?>
+                <div class="notice notice-error is-dismissible"><p><?php esc_html_e('Test weekly report email failed. Check report email setting and mail delivery configuration.', 'markdownai-converter'); ?></p></div>
+            <?php endif; ?>
 
             <form method="get" action="" style="margin-bottom: 16px; display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;">
                 <input type="hidden" name="page" value="mdai-export-reports" />
@@ -657,6 +684,12 @@ class Admin
                 <input type="hidden" name="to_date" value="<?php echo esc_attr($range['to']); ?>" />
                 <?php wp_nonce_field('mdai_generate_report'); ?>
                 <?php submit_button(__('Generate Printable Report (PDF-ready)', 'markdownai-converter'), 'primary', '', false); ?>
+            </form>
+
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top: 8px;">
+                <input type="hidden" name="action" value="mdai_send_test_weekly_report" />
+                <?php wp_nonce_field('mdai_send_test_weekly_report'); ?>
+                <?php submit_button(__('Send Test Weekly Report Now', 'markdownai-converter'), 'secondary', '', false); ?>
             </form>
 
             <p class="description" style="margin-top: 8px; max-width: 880px;">
@@ -776,6 +809,23 @@ class Admin
         exit;
     }
 
+    public static function send_test_weekly_report(): void
+    {
+        if (! current_user_can('manage_options')) {
+            wp_die(esc_html__('You do not have permission to send test reports.', 'markdownai-converter'));
+        }
+
+        check_admin_referer('mdai_send_test_weekly_report');
+
+        $sent = Installer::send_weekly_report_email(true);
+
+        wp_safe_redirect(add_query_arg([
+            'page' => 'mdai-export-reports',
+            'mdai_notice' => $sent ? 'test_weekly_sent' : 'test_weekly_failed',
+        ], admin_url('admin.php')));
+        exit;
+    }
+
     public static function render_settings_page(): void
     {
         if (! current_user_can('manage_options')) {
@@ -882,5 +932,21 @@ class Admin
             $lastDay,
             $maxHits
         );
+    }
+
+    private static function format_delta(array $delta): string
+    {
+        $value = (int) ($delta['value'] ?? 0);
+        $prefix = $value > 0 ? '+' : '';
+        $base = $prefix . number_format_i18n($value);
+
+        if (! isset($delta['percent']) || $delta['percent'] === null) {
+            return $base . ' (' . __('n/a', 'markdownai-converter') . ')';
+        }
+
+        $percent = (float) $delta['percent'];
+        $percentPrefix = $percent > 0 ? '+' : '';
+
+        return sprintf('%s (%s%.1f%%)', $base, $percentPrefix, $percent);
     }
 }

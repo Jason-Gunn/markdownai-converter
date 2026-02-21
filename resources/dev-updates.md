@@ -112,6 +112,15 @@ MarkdownAI Converter is a WordPress plugin that:
   - top content opportunities
 - Report page has print button; browser “Save as PDF” is current PDF workflow.
 
+### 11) Weekly reporting + KPI deltas
+- Added weekly report scheduling using WP-Cron custom schedule (`mdai_weekly`).
+- Added settings for:
+  - enable/disable weekly reports
+  - report recipient email
+- Implemented weekly email summary job with KPI and top-page snapshot.
+- Added manual admin action on Export & Reports to send a test weekly report immediately.
+- Added period-over-period KPI deltas on Overview (current period vs previous equal-length period).
+
 ## Current Behavior Summary
 - Tracking is only recorded when setting is enabled.
 - Non-admin users cannot access plugin admin/report/export features.
@@ -175,7 +184,8 @@ Use these thematic commits for cleaner history:
 5. `feat(testing): add demo data seeding and cleanup controls`
 6. `feat(content): add rule-based suggestions engine and admin UI`
 7. `feat(reporting): add export/reports page and printable client report`
-8. `docs: add specs, environment reference, and handoff updates`
+8. `feat(reporting): add weekly email scheduling and KPI period deltas`
+9. `docs: add specs, environment reference, and handoff updates`
 
 ## Suggested Next Session Prompt (for LLM)
 "Continue MarkdownAI Converter from resources/dev-updates.md. Implement native PDF generation for client reports with secure admin action, add scheduled weekly report emails via WP-Cron, and add PHPUnit tests for suggestions scoring. Keep WordPress-native architecture and existing security checks."
