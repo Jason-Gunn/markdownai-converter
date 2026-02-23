@@ -55,6 +55,8 @@ Run endpoint calls repeatedly (manual or script) to generate data:
 2. Validate KPI table updates with selected range.
 3. Confirm trend graph appears after traffic exists.
 4. Confirm top crawled pages table lists expected pages.
+5. Confirm **Bot Signature Metrics** table renders unique/returning/new signatures and returning hit share.
+6. Confirm **Bot Family Breakdown** table renders families, hit counts, share %, and avg latency.
 
 ## 8) Test Suggestions Engine
 1. Open **MarkdownAI Converter → Suggestions**.

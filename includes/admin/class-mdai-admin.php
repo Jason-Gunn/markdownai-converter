@@ -104,6 +104,8 @@ class Admin
 
         $range = Analytics::sanitize_date_range($fromInput, $toInput);
         $kpis = Analytics::get_kpis($range['from_datetime'], $range['to_datetime']);
+        $signatureMetrics = Analytics::get_signature_metrics($range['from_datetime'], $range['to_datetime']);
+        $familyBreakdown = Analytics::get_bot_family_breakdown($range['from_datetime'], $range['to_datetime'], 8);
         $comparison = Analytics::get_period_comparison($range);
         $deltas = (array) ($comparison['deltas'] ?? []);
         $previousRange = (array) ($comparison['previous_range'] ?? []);
@@ -210,6 +212,52 @@ class Admin
             <?php else : ?>
                 <p><?php esc_html_e('No trend data for the selected period yet.', 'markdownai-converter'); ?></p>
             <?php endif; ?>
+
+            <h2><?php esc_html_e('Bot Signature Metrics', 'markdownai-converter'); ?></h2>
+            <table class="widefat striped" style="max-width: 920px; margin-bottom: 16px;">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e('Unique Signatures', 'markdownai-converter'); ?></th>
+                        <th><?php esc_html_e('Returning Signatures', 'markdownai-converter'); ?></th>
+                        <th><?php esc_html_e('New Signatures', 'markdownai-converter'); ?></th>
+                        <th><?php esc_html_e('Returning Hit Share', 'markdownai-converter'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong><?php echo esc_html(number_format_i18n((int) ($signatureMetrics['unique_signatures'] ?? 0))); ?></strong></td>
+                        <td><strong><?php echo esc_html(number_format_i18n((int) ($signatureMetrics['returning_signatures'] ?? 0))); ?></strong></td>
+                        <td><strong><?php echo esc_html(number_format_i18n((int) ($signatureMetrics['new_signatures'] ?? 0))); ?></strong></td>
+                        <td><strong><?php echo esc_html(number_format_i18n((float) ($signatureMetrics['returning_hit_share_pct'] ?? 0), 1)); ?>%</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2><?php esc_html_e('Bot Family Breakdown', 'markdownai-converter'); ?></h2>
+            <table class="widefat striped" style="max-width: 920px; margin-bottom: 16px;">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e('Bot Family', 'markdownai-converter'); ?></th>
+                        <th><?php esc_html_e('Hits', 'markdownai-converter'); ?></th>
+                        <th><?php esc_html_e('Share', 'markdownai-converter'); ?></th>
+                        <th><?php esc_html_e('Avg Latency (ms)', 'markdownai-converter'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ($familyBreakdown === []) : ?>
+                        <tr><td colspan="4"><?php esc_html_e('No bot family data for this period.', 'markdownai-converter'); ?></td></tr>
+                    <?php else : ?>
+                        <?php foreach ($familyBreakdown as $familyRow) : ?>
+                            <tr>
+                                <td><?php echo esc_html(ucfirst((string) ($familyRow['bot_family'] ?? 'unknown'))); ?></td>
+                                <td><?php echo esc_html(number_format_i18n((int) ($familyRow['hits'] ?? 0))); ?></td>
+                                <td><?php echo esc_html(number_format_i18n((float) ($familyRow['share_pct'] ?? 0), 1)); ?>%</td>
+                                <td><?php echo esc_html(number_format_i18n((int) ($familyRow['avg_latency_ms'] ?? 0))); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
 
             <h2><?php esc_html_e('Top Crawled Pages', 'markdownai-converter'); ?></h2>
             <table class="widefat striped" style="max-width: 920px;">
@@ -722,6 +770,8 @@ class Admin
         $rangeTo = (string) ($report['range']['to'] ?? '');
         $generatedAt = (string) ($report['generated_at'] ?? '');
         $kpis = (array) ($report['kpis'] ?? []);
+        $signatureMetrics = (array) ($report['signature_metrics'] ?? []);
+        $familyBreakdown = (array) ($report['family_breakdown'] ?? []);
         $topPages = (array) ($report['top_pages'] ?? []);
         $topIssues = (array) ($report['top_issues'] ?? []);
 
@@ -770,6 +820,32 @@ class Admin
         } else {
             echo '<p>' . esc_html__('No trend data available for this period.', 'markdownai-converter') . '</p>';
         }
+
+        echo '<h2>' . esc_html__('Bot Signature Metrics', 'markdownai-converter') . '</h2>';
+        echo '<table><thead><tr><th>' . esc_html__('Unique Signatures', 'markdownai-converter') . '</th><th>' . esc_html__('Returning Signatures', 'markdownai-converter') . '</th><th>' . esc_html__('New Signatures', 'markdownai-converter') . '</th><th>' . esc_html__('Returning Hit Share', 'markdownai-converter') . '</th></tr></thead><tbody>';
+        echo '<tr>';
+        echo '<td>' . esc_html(number_format_i18n((int) ($signatureMetrics['unique_signatures'] ?? 0))) . '</td>';
+        echo '<td>' . esc_html(number_format_i18n((int) ($signatureMetrics['returning_signatures'] ?? 0))) . '</td>';
+        echo '<td>' . esc_html(number_format_i18n((int) ($signatureMetrics['new_signatures'] ?? 0))) . '</td>';
+        echo '<td>' . esc_html(number_format_i18n((float) ($signatureMetrics['returning_hit_share_pct'] ?? 0), 1)) . '%</td>';
+        echo '</tr>';
+        echo '</tbody></table>';
+
+        echo '<h2>' . esc_html__('Bot Family Breakdown', 'markdownai-converter') . '</h2>';
+        echo '<table><thead><tr><th>' . esc_html__('Bot Family', 'markdownai-converter') . '</th><th>' . esc_html__('Hits', 'markdownai-converter') . '</th><th>' . esc_html__('Share', 'markdownai-converter') . '</th><th>' . esc_html__('Avg Latency (ms)', 'markdownai-converter') . '</th></tr></thead><tbody>';
+        if ($familyBreakdown === []) {
+            echo '<tr><td colspan="4">' . esc_html__('No family breakdown data in selected period.', 'markdownai-converter') . '</td></tr>';
+        } else {
+            foreach ($familyBreakdown as $row) {
+                echo '<tr>';
+                echo '<td>' . esc_html(ucfirst((string) ($row['bot_family'] ?? 'unknown'))) . '</td>';
+                echo '<td>' . esc_html(number_format_i18n((int) ($row['hits'] ?? 0))) . '</td>';
+                echo '<td>' . esc_html(number_format_i18n((float) ($row['share_pct'] ?? 0), 1)) . '%</td>';
+                echo '<td>' . esc_html(number_format_i18n((int) ($row['avg_latency_ms'] ?? 0))) . '</td>';
+                echo '</tr>';
+            }
+        }
+        echo '</tbody></table>';
 
         echo '<h2>' . esc_html__('Top Crawled Pages', 'markdownai-converter') . '</h2>';
         echo '<table><thead><tr><th>' . esc_html__('Post ID', 'markdownai-converter') . '</th><th>' . esc_html__('Title', 'markdownai-converter') . '</th><th>' . esc_html__('Hits', 'markdownai-converter') . '</th><th>' . esc_html__('Bot Families', 'markdownai-converter') . '</th></tr></thead><tbody>';

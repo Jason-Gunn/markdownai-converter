@@ -210,6 +210,10 @@ Use these thematic commits for cleaner history:
   - `.github/workflows/ci.yml`
   - Runs Composer install + PHPUnit on push/PR to `main`.
 - Updated README with test/CI instructions.
+- Added advanced analytics views:
+  - bot signature metrics (unique, returning, new, returning hit share)
+  - bot family breakdown (hits/share/latency)
+  - included in both Overview dashboard and printable report output
 
 ### Next Recommended Expansion
 1. Add testability seams for analytics/report classes that currently depend on global WP runtime.

@@ -124,6 +124,87 @@ class Analytics
         return $result;
     }
 
+    public static function get_bot_family_breakdown(string $fromDateTime, string $toDateTime, int $limit = 10): array
+    {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'mdai_bot_events';
+        $limit = max(1, min(25, $limit));
+
+        $sql = "SELECT bot_family, COUNT(*) AS hits, ROUND(AVG(latency_ms)) AS avg_latency_ms
+            FROM {$table}
+            WHERE event_time BETWEEN %s AND %s
+            GROUP BY bot_family
+            ORDER BY hits DESC
+            LIMIT %d";
+
+        $rows = $wpdb->get_results($wpdb->prepare($sql, $fromDateTime, $toDateTime, $limit), ARRAY_A);
+        if (! is_array($rows)) {
+            return [];
+        }
+
+        $totalHits = 0;
+        foreach ($rows as $row) {
+            $totalHits += (int) ($row['hits'] ?? 0);
+        }
+
+        $result = [];
+        foreach ($rows as $row) {
+            $hits = (int) ($row['hits'] ?? 0);
+            $result[] = [
+                'bot_family' => (string) ($row['bot_family'] ?? 'unknown'),
+                'hits' => $hits,
+                'avg_latency_ms' => (int) ($row['avg_latency_ms'] ?? 0),
+                'share_pct' => $totalHits > 0 ? round(($hits / $totalHits) * 100, 1) : 0.0,
+            ];
+        }
+
+        return $result;
+    }
+
+    public static function get_signature_metrics(string $fromDateTime, string $toDateTime): array
+    {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'mdai_bot_events';
+
+        $uniqueSql = "SELECT COUNT(DISTINCT CONCAT(ip_hash, ':', user_agent))
+            FROM {$table}
+            WHERE event_time BETWEEN %s AND %s";
+        $uniqueSignatures = (int) $wpdb->get_var($wpdb->prepare($uniqueSql, $fromDateTime, $toDateTime));
+
+        $returningSignaturesSql = "SELECT COUNT(*)
+            FROM (
+                SELECT CONCAT(ip_hash, ':', user_agent) AS signature, COUNT(*) AS cnt
+                FROM {$table}
+                WHERE event_time BETWEEN %s AND %s
+                GROUP BY signature
+                HAVING COUNT(*) > 1
+            ) AS grouped_signatures";
+        $returningSignatures = (int) $wpdb->get_var($wpdb->prepare($returningSignaturesSql, $fromDateTime, $toDateTime));
+
+        $returningHitsSql = "SELECT COALESCE(SUM(cnt), 0)
+            FROM (
+                SELECT COUNT(*) AS cnt
+                FROM {$table}
+                WHERE event_time BETWEEN %s AND %s
+                GROUP BY CONCAT(ip_hash, ':', user_agent)
+                HAVING COUNT(*) > 1
+            ) AS grouped_hits";
+        $returningHits = (int) $wpdb->get_var($wpdb->prepare($returningHitsSql, $fromDateTime, $toDateTime));
+
+        $totalHitsSql = "SELECT COUNT(*) FROM {$table} WHERE event_time BETWEEN %s AND %s";
+        $totalHits = (int) $wpdb->get_var($wpdb->prepare($totalHitsSql, $fromDateTime, $toDateTime));
+
+        return [
+            'unique_signatures' => $uniqueSignatures,
+            'returning_signatures' => $returningSignatures,
+            'new_signatures' => max(0, $uniqueSignatures - $returningSignatures),
+            'returning_hits' => $returningHits,
+            'returning_hit_share_pct' => $totalHits > 0 ? round(($returningHits / $totalHits) * 100, 1) : 0.0,
+        ];
+    }
+
     public static function get_period_comparison(array $range): array
     {
         $previousRange = self::get_previous_range($range);

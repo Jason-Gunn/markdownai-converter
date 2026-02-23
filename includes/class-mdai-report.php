@@ -13,6 +13,8 @@ class Report
         $range = Analytics::sanitize_date_range($fromDateRaw, $toDateRaw);
 
         $kpis = Analytics::get_kpis($range['from_datetime'], $range['to_datetime']);
+        $signatureMetrics = Analytics::get_signature_metrics($range['from_datetime'], $range['to_datetime']);
+        $familyBreakdown = Analytics::get_bot_family_breakdown($range['from_datetime'], $range['to_datetime'], 8);
         $topPages = Analytics::get_top_pages($range['from_datetime'], $range['to_datetime'], 10);
         $trend = Analytics::get_daily_trend($range['from_datetime'], $range['to_datetime']);
         $suggestions = Suggestions::analyze_recent_posts(15);
@@ -50,6 +52,8 @@ class Report
             'site_url' => home_url('/'),
             'range' => $range,
             'kpis' => $kpis,
+            'signature_metrics' => $signatureMetrics,
+            'family_breakdown' => $familyBreakdown,
             'top_pages' => $topPages,
             'trend' => $trend,
             'top_issues' => $topIssues,
