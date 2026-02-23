@@ -27,6 +27,7 @@ class Bot_Tracker
         $bytesSent = isset($payload['bytes_sent']) ? max(0, (int) $payload['bytes_sent']) : 0;
         $latencyMs = isset($payload['latency_ms']) ? max(0, (int) $payload['latency_ms']) : 0;
         $refererHost = isset($payload['referer_host']) ? sanitize_text_field((string) $payload['referer_host']) : null;
+        $searchTerm = isset($payload['search_term']) ? sanitize_text_field((string) $payload['search_term']) : null;
 
         $ipHash = self::hash_ip_address(self::resolve_remote_ip());
 
@@ -38,6 +39,7 @@ class Bot_Tracker
                 'user_agent' => mb_substr($userAgent, 0, 512),
                 'ip_hash' => $ipHash,
                 'endpoint' => mb_substr($endpoint, 0, 255),
+                'search_term' => $searchTerm ? mb_substr($searchTerm, 0, 255) : null,
                 'post_id' => $postId > 0 ? $postId : null,
                 'status_code' => max(100, min(599, $statusCode)),
                 'bytes_sent' => $bytesSent,
@@ -45,6 +47,7 @@ class Bot_Tracker
                 'referer_host' => $refererHost ? mb_substr($refererHost, 0, 255) : null,
             ],
             [
+                '%s',
                 '%s',
                 '%s',
                 '%s',

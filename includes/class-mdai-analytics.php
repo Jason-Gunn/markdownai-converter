@@ -205,6 +205,38 @@ class Analytics
         ];
     }
 
+    public static function get_top_search_terms(string $fromDateTime, string $toDateTime, int $limit = 10): array
+    {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'mdai_bot_events';
+        $limit = max(1, min(25, $limit));
+
+        $sql = "SELECT search_term, COUNT(*) AS hits
+            FROM {$table}
+            WHERE event_time BETWEEN %s AND %s
+              AND search_term IS NOT NULL
+              AND search_term != ''
+            GROUP BY search_term
+            ORDER BY hits DESC
+            LIMIT %d";
+
+        $rows = $wpdb->get_results($wpdb->prepare($sql, $fromDateTime, $toDateTime, $limit), ARRAY_A);
+        if (! is_array($rows)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($rows as $row) {
+            $result[] = [
+                'search_term' => (string) ($row['search_term'] ?? ''),
+                'hits' => (int) ($row['hits'] ?? 0),
+            ];
+        }
+
+        return $result;
+    }
+
     public static function get_period_comparison(array $range): array
     {
         $previousRange = self::get_previous_range($range);

@@ -4,7 +4,9 @@ namespace MDAI\Admin;
 
 use MDAI\Analytics;
 use MDAI\Demo_Data;
+use MDAI\Installer;
 use MDAI\Markdown_Service;
+use MDAI\Pdf;
 use MDAI\Plugin;
 use MDAI\Report;
 use MDAI\Suggestions;
@@ -106,6 +108,7 @@ class Admin
         $kpis = Analytics::get_kpis($range['from_datetime'], $range['to_datetime']);
         $signatureMetrics = Analytics::get_signature_metrics($range['from_datetime'], $range['to_datetime']);
         $familyBreakdown = Analytics::get_bot_family_breakdown($range['from_datetime'], $range['to_datetime'], 8);
+        $topSearchTerms = Analytics::get_top_search_terms($range['from_datetime'], $range['to_datetime'], 10);
         $comparison = Analytics::get_period_comparison($range);
         $deltas = (array) ($comparison['deltas'] ?? []);
         $previousRange = (array) ($comparison['previous_range'] ?? []);
@@ -115,8 +118,48 @@ class Admin
         $noticeCount = isset($_GET['mdai_count']) ? absint(wp_unslash($_GET['mdai_count'])) : 0;
 
         $svg = self::build_trend_svg($trend);
+        $trendStats = self::calculate_trend_stats($trend);
         ?>
         <div class="wrap">
+            <style>
+                .mdai-card-chart {
+                    border: 1px solid #c3c4c7;
+                    padding: 12px;
+                    max-width: 920px;
+                    background: transparent !important;
+                    color: #3858a2;
+                }
+                .mdai-card-chart svg {
+                    display: block;
+                    background: transparent !important;
+                }
+                .mdai-card-chart svg[style] {
+                    background: transparent !important;
+                }
+                .mdai-trend-stats {
+                    margin-top: 8px;
+                    color: inherit;
+                    font-size: 12px;
+                    display: flex;
+                    gap: 12px;
+                    flex-wrap: wrap;
+                }
+                @media (prefers-color-scheme: dark) {
+                    .mdai-card-chart {
+                        border-color: #3c434a;
+                        color: #8ab4f8;
+                    }
+                }
+                body.admin-color-midnight .mdai-card-chart,
+                body.admin-color-ectoplasm .mdai-card-chart,
+                body.admin-color-ocean .mdai-card-chart,
+                body.admin-color-coffee .mdai-card-chart,
+                body.admin-color-modern .mdai-card-chart {
+                    border-color: #3c434a;
+                    color: #8ab4f8;
+                    background: transparent !important;
+                }
+            </style>
             <h1><?php esc_html_e('Overview', 'markdownai-converter'); ?></h1>
             <p><?php esc_html_e('Track how AI bots crawl your Markdown endpoints over time.', 'markdownai-converter'); ?></p>
 
@@ -200,14 +243,20 @@ class Admin
 
             <h2><?php esc_html_e('Daily Crawl Trend', 'markdownai-converter'); ?></h2>
             <?php if ($svg !== '') : ?>
-                <div style="background: #fff; border: 1px solid #c3c4c7; padding: 12px; max-width: 920px;">
+                <div class="mdai-card-chart">
                     <?php echo wp_kses($svg, [
-                        'svg' => ['viewBox' => true, 'width' => true, 'height' => true, 'xmlns' => true],
+                        'svg' => ['viewBox' => true, 'width' => true, 'height' => true, 'xmlns' => true, 'style' => true],
                         'polyline' => ['fill' => true, 'stroke' => true, 'stroke-width' => true, 'points' => true],
-                        'line' => ['x1' => true, 'y1' => true, 'x2' => true, 'y2' => true, 'stroke' => true, 'stroke-width' => true],
+                        'line' => ['x1' => true, 'y1' => true, 'x2' => true, 'y2' => true, 'stroke' => true, 'stroke-width' => true, 'stroke-dasharray' => true],
                         'text' => ['x' => true, 'y' => true, 'font-size' => true, 'fill' => true],
                         'circle' => ['cx' => true, 'cy' => true, 'r' => true, 'fill' => true],
                     ]); ?>
+                    <div class="mdai-trend-stats">
+                        <span><strong><?php esc_html_e('Points:', 'markdownai-converter'); ?></strong> <?php echo esc_html(number_format_i18n((int) $trendStats['points'])); ?></span>
+                        <span><strong><?php esc_html_e('Min:', 'markdownai-converter'); ?></strong> <?php echo esc_html(number_format_i18n((int) $trendStats['min'])); ?></span>
+                        <span><strong><?php esc_html_e('Max:', 'markdownai-converter'); ?></strong> <?php echo esc_html(number_format_i18n((int) $trendStats['max'])); ?></span>
+                        <span><strong><?php esc_html_e('Avg:', 'markdownai-converter'); ?></strong> <?php echo esc_html(number_format_i18n((float) $trendStats['avg'], 1)); ?></span>
+                    </div>
                 </div>
             <?php else : ?>
                 <p><?php esc_html_e('No trend data for the selected period yet.', 'markdownai-converter'); ?></p>
@@ -253,6 +302,28 @@ class Admin
                                 <td><?php echo esc_html(number_format_i18n((int) ($familyRow['hits'] ?? 0))); ?></td>
                                 <td><?php echo esc_html(number_format_i18n((float) ($familyRow['share_pct'] ?? 0), 1)); ?>%</td>
                                 <td><?php echo esc_html(number_format_i18n((int) ($familyRow['avg_latency_ms'] ?? 0))); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+
+            <h2><?php esc_html_e('Top Bot Search Terms (Best Effort)', 'markdownai-converter'); ?></h2>
+            <table class="widefat striped" style="max-width: 920px; margin-bottom: 16px;">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e('Search Term / Intent Signal', 'markdownai-converter'); ?></th>
+                        <th><?php esc_html_e('Hits', 'markdownai-converter'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ($topSearchTerms === []) : ?>
+                        <tr><td colspan="2"><?php esc_html_e('No detectable search terms were captured for this period.', 'markdownai-converter'); ?></td></tr>
+                    <?php else : ?>
+                        <?php foreach ($topSearchTerms as $termRow) : ?>
+                            <tr>
+                                <td><?php echo esc_html((string) ($termRow['search_term'] ?? '')); ?></td>
+                                <td><?php echo esc_html(number_format_i18n((int) ($termRow['hits'] ?? 0))); ?></td>
                             </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -475,7 +546,7 @@ class Admin
             $params[] = $toDate . ' 23:59:59';
         }
 
-        $sql = "SELECT event_time, bot_family, user_agent, post_id, status_code, latency_ms, bytes_sent, endpoint, referer_host
+        $sql = "SELECT event_time, bot_family, user_agent, search_term, post_id, status_code, latency_ms, bytes_sent, endpoint, referer_host
             FROM {$table}
             {$where}
             ORDER BY event_time DESC
@@ -493,7 +564,7 @@ class Admin
             wp_die(esc_html__('Unable to create CSV output.', 'markdownai-converter'));
         }
 
-        fputcsv($output, ['event_time', 'bot_family', 'user_agent', 'post_id', 'status_code', 'latency_ms', 'bytes_sent', 'endpoint', 'referer_host']);
+        fputcsv($output, ['event_time', 'bot_family', 'user_agent', 'search_term', 'post_id', 'status_code', 'latency_ms', 'bytes_sent', 'endpoint', 'referer_host']);
 
         if (is_array($rows)) {
             foreach ($rows as $row) {
@@ -501,6 +572,7 @@ class Admin
                     (string) ($row['event_time'] ?? ''),
                     (string) ($row['bot_family'] ?? ''),
                     (string) ($row['user_agent'] ?? ''),
+                    (string) ($row['search_term'] ?? ''),
                     (string) ($row['post_id'] ?? ''),
                     (string) ($row['status_code'] ?? ''),
                     (string) ($row['latency_ms'] ?? ''),
@@ -684,6 +756,7 @@ class Admin
         $toDate = isset($_GET['to_date']) ? sanitize_text_field(wp_unslash($_GET['to_date'])) : '';
         $range = Analytics::sanitize_date_range($fromDate, $toDate);
         $noticeAction = isset($_GET['mdai_notice']) ? sanitize_key(wp_unslash($_GET['mdai_notice'])) : '';
+        $pdfAvailable = Pdf::is_available();
 
         $csvUrl = wp_nonce_url(
             add_query_arg(
@@ -705,6 +778,8 @@ class Admin
                 <div class="notice notice-success is-dismissible"><p><?php esc_html_e('Test weekly report email sent.', 'markdownai-converter'); ?></p></div>
             <?php elseif ($noticeAction === 'test_weekly_failed') : ?>
                 <div class="notice notice-error is-dismissible"><p><?php esc_html_e('Test weekly report email failed. Check report email setting and mail delivery configuration.', 'markdownai-converter'); ?></p></div>
+            <?php elseif ($noticeAction === 'pdf_missing_lib') : ?>
+                <div class="notice notice-warning is-dismissible"><p><?php esc_html_e('Native PDF is unavailable in this plugin build. Use Printable Report (HTML) and Save as PDF from your browser.', 'markdownai-converter'); ?></p></div>
             <?php endif; ?>
 
             <form method="get" action="" style="margin-bottom: 16px; display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;">
@@ -731,8 +806,18 @@ class Admin
                 <input type="hidden" name="from_date" value="<?php echo esc_attr($range['from']); ?>" />
                 <input type="hidden" name="to_date" value="<?php echo esc_attr($range['to']); ?>" />
                 <?php wp_nonce_field('mdai_generate_report'); ?>
-                <?php submit_button(__('Generate Printable Report (PDF-ready)', 'markdownai-converter'), 'primary', '', false); ?>
+                <?php submit_button(__('Generate Printable Report (HTML)', 'markdownai-converter'), 'primary', '', false); ?>
             </form>
+
+            <?php if ($pdfAvailable) : ?>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top: 8px;">
+                    <input type="hidden" name="action" value="mdai_generate_report_pdf" />
+                    <input type="hidden" name="from_date" value="<?php echo esc_attr($range['from']); ?>" />
+                    <input type="hidden" name="to_date" value="<?php echo esc_attr($range['to']); ?>" />
+                    <?php wp_nonce_field('mdai_generate_report_pdf'); ?>
+                    <?php submit_button(__('Download Native PDF Report', 'markdownai-converter'), 'secondary', '', false); ?>
+                </form>
+            <?php endif; ?>
 
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top: 8px;">
                 <input type="hidden" name="action" value="mdai_send_test_weekly_report" />
@@ -741,7 +826,10 @@ class Admin
             </form>
 
             <p class="description" style="margin-top: 8px; max-width: 880px;">
-                <?php esc_html_e('The generated report opens in a print-optimized page. Use your browser\'s Print dialog and select “Save as PDF” to produce a client-ready file.', 'markdownai-converter'); ?>
+                <?php esc_html_e('The HTML report supports browser print-to-PDF.', 'markdownai-converter'); ?>
+                <?php if (! $pdfAvailable) : ?>
+                    <?php esc_html_e(' Native PDF download is not included in this build.', 'markdownai-converter'); ?>
+                <?php endif; ?>
             </p>
         </div>
         <?php
@@ -760,10 +848,45 @@ class Admin
 
         $report = Report::build_report_data($fromDate, $toDate);
         $trendSvg = self::build_trend_svg((array) ($report['trend'] ?? []));
+        $html = self::build_client_report_html($report, $trendSvg, true);
 
         nocache_headers();
         header('Content-Type: text/html; charset=utf-8');
+        echo $html;
+        exit;
+    }
 
+    public static function generate_client_report_pdf(): void
+    {
+        if (! current_user_can('manage_options')) {
+            wp_die(esc_html__('You do not have permission to generate reports.', 'markdownai-converter'));
+        }
+
+        check_admin_referer('mdai_generate_report_pdf');
+
+        $fromDate = isset($_POST['from_date']) ? sanitize_text_field(wp_unslash($_POST['from_date'])) : '';
+        $toDate = isset($_POST['to_date']) ? sanitize_text_field(wp_unslash($_POST['to_date'])) : '';
+
+        $report = Report::build_report_data($fromDate, $toDate);
+        $trendSvg = self::build_trend_svg((array) ($report['trend'] ?? []));
+        $html = self::build_client_report_html($report, $trendSvg, false);
+
+        $fileName = 'mdai-report-' . gmdate('Ymd-His') . '.pdf';
+        $generated = Pdf::stream_report_pdf($html, $fileName);
+
+        if (! $generated) {
+            wp_safe_redirect(add_query_arg([
+                'page' => 'mdai-export-reports',
+                'mdai_notice' => 'pdf_missing_lib',
+            ], admin_url('admin.php')));
+            exit;
+        }
+
+        exit;
+    }
+
+    private static function build_client_report_html(array $report, string $trendSvg, bool $includePrintButton): string
+    {
         $siteName = (string) ($report['site_name'] ?? '');
         $siteUrl = (string) ($report['site_url'] ?? '');
         $rangeFrom = (string) ($report['range']['from'] ?? '');
@@ -772,117 +895,181 @@ class Admin
         $kpis = (array) ($report['kpis'] ?? []);
         $signatureMetrics = (array) ($report['signature_metrics'] ?? []);
         $familyBreakdown = (array) ($report['family_breakdown'] ?? []);
+        $topSearchTerms = (array) ($report['top_search_terms'] ?? []);
         $topPages = (array) ($report['top_pages'] ?? []);
         $topIssues = (array) ($report['top_issues'] ?? []);
+        $branding = (array) ($report['branding'] ?? []);
 
-        echo '<!doctype html><html><head><meta charset="utf-8" />';
-        echo '<title>' . esc_html__('MarkdownAI Converter Report', 'markdownai-converter') . '</title>';
-        echo '<style>
-            body{font-family:Arial,Helvetica,sans-serif;color:#1d2327;margin:20px;}
-            h1,h2,h3{margin:0 0 10px 0;}
-            .meta{margin-bottom:16px;font-size:13px;color:#50575e;}
-            .card-wrap{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;}
-            .card{border:1px solid #c3c4c7;border-radius:6px;padding:10px;min-width:180px;background:#fff;}
-            .label{font-size:12px;color:#50575e;}
-            .value{font-size:20px;font-weight:700;}
-            table{border-collapse:collapse;width:100%;margin-top:10px;}
-            th,td{border:1px solid #dcdcde;padding:8px;font-size:13px;text-align:left;}
-            th{background:#f6f7f7;}
-            .chart{border:1px solid #dcdcde;padding:8px;background:#fff;display:inline-block;}
-            @media print{.no-print{display:none;} body{margin:12px;}}
-        </style>';
-        echo '</head><body>';
-        echo '<p class="no-print"><button onclick="window.print();">' . esc_html__('Print / Save as PDF', 'markdownai-converter') . '</button></p>';
-        echo '<h1>' . esc_html__('MarkdownAI Performance Report', 'markdownai-converter') . '</h1>';
-        echo '<div class="meta">';
-        echo '<div><strong>' . esc_html__('Site:', 'markdownai-converter') . '</strong> ' . esc_html($siteName) . ' (' . esc_html($siteUrl) . ')</div>';
-        echo '<div><strong>' . esc_html__('Period:', 'markdownai-converter') . '</strong> ' . esc_html($rangeFrom) . ' → ' . esc_html($rangeTo) . '</div>';
-        echo '<div><strong>' . esc_html__('Generated:', 'markdownai-converter') . '</strong> ' . esc_html($generatedAt) . '</div>';
-        echo '</div>';
-
-        echo '<h2>' . esc_html__('Key Metrics', 'markdownai-converter') . '</h2>';
-        echo '<div class="card-wrap">';
-        echo '<div class="card"><div class="label">' . esc_html__('Total Bot Hits', 'markdownai-converter') . '</div><div class="value">' . esc_html(number_format_i18n((int) ($kpis['total_hits'] ?? 0))) . '</div></div>';
-        echo '<div class="card"><div class="label">' . esc_html__('Unique Bot Families', 'markdownai-converter') . '</div><div class="value">' . esc_html(number_format_i18n((int) ($kpis['unique_bot_families'] ?? 0))) . '</div></div>';
-        echo '<div class="card"><div class="label">' . esc_html__('Unique Crawled Pages', 'markdownai-converter') . '</div><div class="value">' . esc_html(number_format_i18n((int) ($kpis['unique_posts'] ?? 0))) . '</div></div>';
-        echo '<div class="card"><div class="label">' . esc_html__('Avg Latency (ms)', 'markdownai-converter') . '</div><div class="value">' . esc_html(number_format_i18n((int) ($kpis['avg_latency_ms'] ?? 0))) . '</div></div>';
-        echo '</div>';
-
-        echo '<h2>' . esc_html__('Daily Crawl Trend', 'markdownai-converter') . '</h2>';
-        if ($trendSvg !== '') {
-            echo '<div class="chart">' . wp_kses($trendSvg, [
-                'svg' => ['viewBox' => true, 'width' => true, 'height' => true, 'xmlns' => true],
-                'polyline' => ['fill' => true, 'stroke' => true, 'stroke-width' => true, 'points' => true],
-                'line' => ['x1' => true, 'y1' => true, 'x2' => true, 'y2' => true, 'stroke' => true, 'stroke-width' => true],
-                'text' => ['x' => true, 'y' => true, 'font-size' => true, 'fill' => true],
-                'circle' => ['cx' => true, 'cy' => true, 'r' => true, 'fill' => true],
-            ]) . '</div>';
-        } else {
-            echo '<p>' . esc_html__('No trend data available for this period.', 'markdownai-converter') . '</p>';
+        $brandName = (string) ($branding['brand_name'] ?? '');
+        $logoUrl = esc_url((string) ($branding['logo_url'] ?? ''));
+        $accentColor = (string) ($branding['accent_color'] ?? '#2271B1');
+        if (preg_match('/^#[0-9A-Fa-f]{6}$/', $accentColor) !== 1) {
+            $accentColor = '#2271B1';
         }
 
-        echo '<h2>' . esc_html__('Bot Signature Metrics', 'markdownai-converter') . '</h2>';
-        echo '<table><thead><tr><th>' . esc_html__('Unique Signatures', 'markdownai-converter') . '</th><th>' . esc_html__('Returning Signatures', 'markdownai-converter') . '</th><th>' . esc_html__('New Signatures', 'markdownai-converter') . '</th><th>' . esc_html__('Returning Hit Share', 'markdownai-converter') . '</th></tr></thead><tbody>';
-        echo '<tr>';
-        echo '<td>' . esc_html(number_format_i18n((int) ($signatureMetrics['unique_signatures'] ?? 0))) . '</td>';
-        echo '<td>' . esc_html(number_format_i18n((int) ($signatureMetrics['returning_signatures'] ?? 0))) . '</td>';
-        echo '<td>' . esc_html(number_format_i18n((int) ($signatureMetrics['new_signatures'] ?? 0))) . '</td>';
-        echo '<td>' . esc_html(number_format_i18n((float) ($signatureMetrics['returning_hit_share_pct'] ?? 0), 1)) . '%</td>';
-        echo '</tr>';
-        echo '</tbody></table>';
+        ob_start();
+        ?>
+        <!doctype html>
+        <html>
+        <head>
+            <meta charset="utf-8" />
+            <title><?php esc_html_e('MarkdownAI Converter Report', 'markdownai-converter'); ?></title>
+            <style>
+                body { font-family: Arial, Helvetica, sans-serif; color: #1d2327; margin: 20px; }
+                h1, h2, h3 { margin: 0 0 10px 0; }
+                .meta { margin-bottom: 16px; font-size: 13px; color: #50575e; }
+                .report-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+                .brand { display: flex; align-items: center; gap: 10px; }
+                .brand img { max-height: 48px; max-width: 180px; }
+                .brand-name { color: <?php echo esc_html($accentColor); ?>; font-weight: 700; font-size: 18px; }
+                .card-wrap { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
+                .card { border: 1px solid #c3c4c7; border-radius: 6px; padding: 10px; min-width: 180px; background: #fff; }
+                .label { font-size: 12px; color: #50575e; }
+                .value { font-size: 20px; font-weight: 700; }
+                table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+                th, td { border: 1px solid #dcdcde; padding: 8px; font-size: 13px; text-align: left; }
+                th { background: #f6f7f7; }
+                .chart { border: 1px solid #dcdcde; padding: 8px; background: #fff; display: inline-block; color: #3858a2; }
+                .accent-line { height: 4px; background: <?php echo esc_html($accentColor); ?>; margin: 8px 0 14px; }
+                @media print { .no-print { display: none; } body { margin: 12px; } }
+            </style>
+        </head>
+        <body>
+            <?php if ($includePrintButton) : ?>
+                <p class="no-print"><button onclick="window.print();"><?php esc_html_e('Print / Save as PDF', 'markdownai-converter'); ?></button></p>
+            <?php endif; ?>
+            <div class="report-head">
+                <div>
+                    <h1><?php esc_html_e('MarkdownAI Performance Report', 'markdownai-converter'); ?></h1>
+                </div>
+                <div class="brand">
+                    <?php if ($logoUrl !== '') : ?>
+                        <img src="<?php echo $logoUrl; ?>" alt="" />
+                    <?php endif; ?>
+                    <?php if ($brandName !== '') : ?>
+                        <div class="brand-name"><?php echo esc_html($brandName); ?></div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="accent-line"></div>
 
-        echo '<h2>' . esc_html__('Bot Family Breakdown', 'markdownai-converter') . '</h2>';
-        echo '<table><thead><tr><th>' . esc_html__('Bot Family', 'markdownai-converter') . '</th><th>' . esc_html__('Hits', 'markdownai-converter') . '</th><th>' . esc_html__('Share', 'markdownai-converter') . '</th><th>' . esc_html__('Avg Latency (ms)', 'markdownai-converter') . '</th></tr></thead><tbody>';
-        if ($familyBreakdown === []) {
-            echo '<tr><td colspan="4">' . esc_html__('No family breakdown data in selected period.', 'markdownai-converter') . '</td></tr>';
-        } else {
-            foreach ($familyBreakdown as $row) {
-                echo '<tr>';
-                echo '<td>' . esc_html(ucfirst((string) ($row['bot_family'] ?? 'unknown'))) . '</td>';
-                echo '<td>' . esc_html(number_format_i18n((int) ($row['hits'] ?? 0))) . '</td>';
-                echo '<td>' . esc_html(number_format_i18n((float) ($row['share_pct'] ?? 0), 1)) . '%</td>';
-                echo '<td>' . esc_html(number_format_i18n((int) ($row['avg_latency_ms'] ?? 0))) . '</td>';
-                echo '</tr>';
-            }
-        }
-        echo '</tbody></table>';
+            <div class="meta">
+                <div><strong><?php esc_html_e('Site:', 'markdownai-converter'); ?></strong> <?php echo esc_html($siteName); ?> (<?php echo esc_html($siteUrl); ?>)</div>
+                <div><strong><?php esc_html_e('Period:', 'markdownai-converter'); ?></strong> <?php echo esc_html($rangeFrom); ?> → <?php echo esc_html($rangeTo); ?></div>
+                <div><strong><?php esc_html_e('Generated:', 'markdownai-converter'); ?></strong> <?php echo esc_html($generatedAt); ?></div>
+            </div>
 
-        echo '<h2>' . esc_html__('Top Crawled Pages', 'markdownai-converter') . '</h2>';
-        echo '<table><thead><tr><th>' . esc_html__('Post ID', 'markdownai-converter') . '</th><th>' . esc_html__('Title', 'markdownai-converter') . '</th><th>' . esc_html__('Hits', 'markdownai-converter') . '</th><th>' . esc_html__('Bot Families', 'markdownai-converter') . '</th></tr></thead><tbody>';
-        if ($topPages === []) {
-            echo '<tr><td colspan="4">' . esc_html__('No page activity in selected period.', 'markdownai-converter') . '</td></tr>';
-        } else {
-            foreach ($topPages as $row) {
-                echo '<tr>';
-                echo '<td>' . esc_html((string) ($row['post_id'] ?? '')) . '</td>';
-                echo '<td>' . esc_html((string) (($row['post_title'] ?? '') !== '' ? $row['post_title'] : __('(no title)', 'markdownai-converter'))) . '</td>';
-                echo '<td>' . esc_html(number_format_i18n((int) ($row['hits'] ?? 0))) . '</td>';
-                echo '<td>' . esc_html(number_format_i18n((int) ($row['bot_families'] ?? 0))) . '</td>';
-                echo '</tr>';
-            }
-        }
-        echo '</tbody></table>';
+            <h2><?php esc_html_e('Key Metrics', 'markdownai-converter'); ?></h2>
+            <div class="card-wrap">
+                <div class="card"><div class="label"><?php esc_html_e('Total Bot Hits', 'markdownai-converter'); ?></div><div class="value"><?php echo esc_html(number_format_i18n((int) ($kpis['total_hits'] ?? 0))); ?></div></div>
+                <div class="card"><div class="label"><?php esc_html_e('Unique Bot Families', 'markdownai-converter'); ?></div><div class="value"><?php echo esc_html(number_format_i18n((int) ($kpis['unique_bot_families'] ?? 0))); ?></div></div>
+                <div class="card"><div class="label"><?php esc_html_e('Unique Crawled Pages', 'markdownai-converter'); ?></div><div class="value"><?php echo esc_html(number_format_i18n((int) ($kpis['unique_posts'] ?? 0))); ?></div></div>
+                <div class="card"><div class="label"><?php esc_html_e('Avg Latency (ms)', 'markdownai-converter'); ?></div><div class="value"><?php echo esc_html(number_format_i18n((int) ($kpis['avg_latency_ms'] ?? 0))); ?></div></div>
+            </div>
 
-        echo '<h2>' . esc_html__('Top Content Opportunities', 'markdownai-converter') . '</h2>';
-        echo '<table><thead><tr><th>' . esc_html__('Issue', 'markdownai-converter') . '</th><th>' . esc_html__('Affected Pages', 'markdownai-converter') . '</th></tr></thead><tbody>';
-        foreach ($topIssues as $issueKey => $count) {
-            if ((int) $count <= 0) {
-                continue;
-            }
-            $label = match ($issueKey) {
-                'thin_content' => __('Thin content', 'markdownai-converter'),
-                'long_paragraphs' => __('Long paragraphs', 'markdownai-converter'),
-                'missing_alt' => __('Images missing alt text', 'markdownai-converter'),
-                'low_internal_links' => __('Low internal linking', 'markdownai-converter'),
-                'no_faq' => __('No FAQ section', 'markdownai-converter'),
-                default => (string) $issueKey,
-            };
-            echo '<tr><td>' . esc_html($label) . '</td><td>' . esc_html(number_format_i18n((int) $count)) . '</td></tr>';
-        }
-        echo '</tbody></table>';
+            <h2><?php esc_html_e('Daily Crawl Trend', 'markdownai-converter'); ?></h2>
+            <?php if ($trendSvg !== '') : ?>
+                <div class="chart"><?php echo wp_kses($trendSvg, [
+                    'svg' => ['viewBox' => true, 'width' => true, 'height' => true, 'xmlns' => true],
+                    'polyline' => ['fill' => true, 'stroke' => true, 'stroke-width' => true, 'points' => true],
+                    'line' => ['x1' => true, 'y1' => true, 'x2' => true, 'y2' => true, 'stroke' => true, 'stroke-width' => true, 'stroke-dasharray' => true],
+                    'text' => ['x' => true, 'y' => true, 'font-size' => true, 'fill' => true],
+                    'circle' => ['cx' => true, 'cy' => true, 'r' => true, 'fill' => true],
+                ]); ?></div>
+            <?php else : ?>
+                <p><?php esc_html_e('No trend data available for this period.', 'markdownai-converter'); ?></p>
+            <?php endif; ?>
 
-        echo '</body></html>';
-        exit;
+            <h2><?php esc_html_e('Bot Signature Metrics', 'markdownai-converter'); ?></h2>
+            <table>
+                <thead><tr><th><?php esc_html_e('Unique Signatures', 'markdownai-converter'); ?></th><th><?php esc_html_e('Returning Signatures', 'markdownai-converter'); ?></th><th><?php esc_html_e('New Signatures', 'markdownai-converter'); ?></th><th><?php esc_html_e('Returning Hit Share', 'markdownai-converter'); ?></th></tr></thead>
+                <tbody><tr>
+                    <td><?php echo esc_html(number_format_i18n((int) ($signatureMetrics['unique_signatures'] ?? 0))); ?></td>
+                    <td><?php echo esc_html(number_format_i18n((int) ($signatureMetrics['returning_signatures'] ?? 0))); ?></td>
+                    <td><?php echo esc_html(number_format_i18n((int) ($signatureMetrics['new_signatures'] ?? 0))); ?></td>
+                    <td><?php echo esc_html(number_format_i18n((float) ($signatureMetrics['returning_hit_share_pct'] ?? 0), 1)); ?>%</td>
+                </tr></tbody>
+            </table>
+
+            <h2><?php esc_html_e('Bot Family Breakdown', 'markdownai-converter'); ?></h2>
+            <table>
+                <thead><tr><th><?php esc_html_e('Bot Family', 'markdownai-converter'); ?></th><th><?php esc_html_e('Hits', 'markdownai-converter'); ?></th><th><?php esc_html_e('Share', 'markdownai-converter'); ?></th><th><?php esc_html_e('Avg Latency (ms)', 'markdownai-converter'); ?></th></tr></thead>
+                <tbody>
+                <?php if ($familyBreakdown === []) : ?>
+                    <tr><td colspan="4"><?php esc_html_e('No family breakdown data in selected period.', 'markdownai-converter'); ?></td></tr>
+                <?php else : ?>
+                    <?php foreach ($familyBreakdown as $row) : ?>
+                        <tr>
+                            <td><?php echo esc_html(ucfirst((string) ($row['bot_family'] ?? 'unknown'))); ?></td>
+                            <td><?php echo esc_html(number_format_i18n((int) ($row['hits'] ?? 0))); ?></td>
+                            <td><?php echo esc_html(number_format_i18n((float) ($row['share_pct'] ?? 0), 1)); ?>%</td>
+                            <td><?php echo esc_html(number_format_i18n((int) ($row['avg_latency_ms'] ?? 0))); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                </tbody>
+            </table>
+
+            <h2><?php esc_html_e('Top Bot Search Terms (Best Effort)', 'markdownai-converter'); ?></h2>
+            <table>
+                <thead><tr><th><?php esc_html_e('Search Term / Intent Signal', 'markdownai-converter'); ?></th><th><?php esc_html_e('Hits', 'markdownai-converter'); ?></th></tr></thead>
+                <tbody>
+                <?php if ($topSearchTerms === []) : ?>
+                    <tr><td colspan="2"><?php esc_html_e('No detectable search terms captured for this period.', 'markdownai-converter'); ?></td></tr>
+                <?php else : ?>
+                    <?php foreach ($topSearchTerms as $termRow) : ?>
+                        <tr>
+                            <td><?php echo esc_html((string) ($termRow['search_term'] ?? '')); ?></td>
+                            <td><?php echo esc_html(number_format_i18n((int) ($termRow['hits'] ?? 0))); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                </tbody>
+            </table>
+
+            <h2><?php esc_html_e('Top Crawled Pages', 'markdownai-converter'); ?></h2>
+            <table>
+                <thead><tr><th><?php esc_html_e('Post ID', 'markdownai-converter'); ?></th><th><?php esc_html_e('Title', 'markdownai-converter'); ?></th><th><?php esc_html_e('Hits', 'markdownai-converter'); ?></th><th><?php esc_html_e('Bot Families', 'markdownai-converter'); ?></th></tr></thead>
+                <tbody>
+                <?php if ($topPages === []) : ?>
+                    <tr><td colspan="4"><?php esc_html_e('No page activity in selected period.', 'markdownai-converter'); ?></td></tr>
+                <?php else : ?>
+                    <?php foreach ($topPages as $row) : ?>
+                        <tr>
+                            <td><?php echo esc_html((string) ($row['post_id'] ?? '')); ?></td>
+                            <td><?php echo esc_html((string) (($row['post_title'] ?? '') !== '' ? $row['post_title'] : __('(no title)', 'markdownai-converter'))); ?></td>
+                            <td><?php echo esc_html(number_format_i18n((int) ($row['hits'] ?? 0))); ?></td>
+                            <td><?php echo esc_html(number_format_i18n((int) ($row['bot_families'] ?? 0))); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                </tbody>
+            </table>
+
+            <h2><?php esc_html_e('Top Content Opportunities', 'markdownai-converter'); ?></h2>
+            <table>
+                <thead><tr><th><?php esc_html_e('Issue', 'markdownai-converter'); ?></th><th><?php esc_html_e('Affected Pages', 'markdownai-converter'); ?></th></tr></thead>
+                <tbody>
+                <?php foreach ($topIssues as $issueKey => $count) : ?>
+                    <?php if ((int) $count <= 0) { continue; } ?>
+                    <?php
+                    $label = match ($issueKey) {
+                        'thin_content' => __('Thin content', 'markdownai-converter'),
+                        'long_paragraphs' => __('Long paragraphs', 'markdownai-converter'),
+                        'missing_alt' => __('Images missing alt text', 'markdownai-converter'),
+                        'low_internal_links' => __('Low internal linking', 'markdownai-converter'),
+                        'no_faq' => __('No FAQ section', 'markdownai-converter'),
+                        default => (string) $issueKey,
+                    };
+                    ?>
+                    <tr><td><?php echo esc_html($label); ?></td><td><?php echo esc_html(number_format_i18n((int) $count)); ?></td></tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </body>
+        </html>
+        <?php
+        return (string) ob_get_clean();
     }
 
     public static function send_test_weekly_report(): void
@@ -968,6 +1155,27 @@ class Admin
         $count = count($trend);
         $stepX = $count > 1 ? $plotWidth / ($count - 1) : 0;
 
+        $gridLines = [];
+        for ($i = 0; $i <= 4; $i++) {
+            $ratio = $i / 4;
+            $y = $paddingTop + ($plotHeight * $ratio);
+            $value = (int) round($maxHits * (1 - $ratio));
+            $gridLines[] = '<line x1="' . $paddingLeft . '" y1="' . round($y, 2) . '" x2="' . ($width - $paddingRight) . '" y2="' . round($y, 2) . '" stroke="currentColor" stroke-width="1" stroke-dasharray="2,2" />';
+            $gridLines[] = '<text x="8" y="' . round($y + 4, 2) . '" font-size="11" fill="currentColor">' . $value . '</text>';
+        }
+
+        $xGuides = [];
+        $labelIndexes = [0];
+        if ($count > 2) {
+            $labelIndexes[] = (int) floor(($count - 1) * 0.25);
+            $labelIndexes[] = (int) floor(($count - 1) * 0.5);
+            $labelIndexes[] = (int) floor(($count - 1) * 0.75);
+        }
+        if ($count > 1) {
+            $labelIndexes[] = $count - 1;
+        }
+        $labelIndexes = array_values(array_unique($labelIndexes));
+
         $points = [];
         $dots = [];
         foreach ($trend as $index => $point) {
@@ -976,23 +1184,26 @@ class Admin
             $y = $paddingTop + ($plotHeight - (($hits / $maxHits) * $plotHeight));
 
             $points[] = round($x, 2) . ',' . round($y, 2);
-            $dots[] = '<circle cx="' . esc_attr((string) round($x, 2)) . '" cy="' . esc_attr((string) round($y, 2)) . '" r="2.5" fill="#2271b1" />';
+            $dots[] = '<circle cx="' . esc_attr((string) round($x, 2)) . '" cy="' . esc_attr((string) round($y, 2)) . '" r="2.5" fill="currentColor" />';
+
+            if (in_array($index, $labelIndexes, true)) {
+                $day = esc_html((string) ($point['day'] ?? ''));
+                $xGuides[] = '<line x1="' . round($x, 2) . '" y1="' . $paddingTop . '" x2="' . round($x, 2) . '" y2="' . ($height - $paddingBottom) . '" stroke="currentColor" stroke-width="1" stroke-dasharray="2,3" />';
+                $xGuides[] = '<text x="' . round(max($paddingLeft, $x - 18), 2) . '" y="' . ($height - 8) . '" font-size="10" fill="currentColor">' . $day . '</text>';
+            }
         }
 
         $firstDay = esc_html((string) ($trend[0]['day'] ?? ''));
         $lastDay = esc_html((string) ($trend[$count - 1]['day'] ?? ''));
 
         return sprintf(
-            '<svg xmlns="http://www.w3.org/2000/svg" width="%1$d" height="%2$d" viewBox="0 0 %1$d %2$d">'
-                . '<line x1="%3$d" y1="%4$d" x2="%5$d" y2="%4$d" stroke="#dcdcde" stroke-width="1" />'
-                . '<line x1="%3$d" y1="%6$d" x2="%5$d" y2="%6$d" stroke="#dcdcde" stroke-width="1" />'
-                . '<line x1="%3$d" y1="%4$d" x2="%3$d" y2="%6$d" stroke="#dcdcde" stroke-width="1" />'
-                . '<polyline fill="none" stroke="#2271b1" stroke-width="2" points="%7$s" />'
+            '<svg xmlns="http://www.w3.org/2000/svg" width="%1$d" height="%2$d" viewBox="0 0 %1$d %2$d" style="background:transparent;">'
+                . '%14$s'
+                . '%15$s'
+                . '<line x1="%3$d" y1="%4$d" x2="%3$d" y2="%6$d" stroke="currentColor" stroke-width="1" />'
+                . '<line x1="%3$d" y1="%6$d" x2="%5$d" y2="%6$d" stroke="currentColor" stroke-width="1" />'
+                . '<polyline fill="none" stroke="currentColor" stroke-width="2" points="%7$s" />'
                 . '%8$s'
-                . '<text x="%3$d" y="%9$d" font-size="11" fill="#50575e">%10$s</text>'
-                . '<text x="%11$d" y="%9$d" font-size="11" fill="#50575e">%12$s</text>'
-                . '<text x="8" y="%4$d" font-size="11" fill="#50575e">%13$d</text>'
-                . '<text x="8" y="%6$d" font-size="11" fill="#50575e">0</text>'
             . '</svg>',
             $width,
             $height,
@@ -1006,8 +1217,37 @@ class Admin
             $firstDay,
             $width - 90,
             $lastDay,
-            $maxHits
+            $maxHits,
+            implode('', $gridLines),
+            implode('', $xGuides)
         );
+    }
+
+    private static function calculate_trend_stats(array $trend): array
+    {
+        if ($trend === []) {
+            return [
+                'points' => 0,
+                'min' => 0,
+                'max' => 0,
+                'avg' => 0.0,
+            ];
+        }
+
+        $values = [];
+        foreach ($trend as $point) {
+            $values[] = (int) ($point['hits'] ?? 0);
+        }
+
+        $count = count($values);
+        $sum = array_sum($values);
+
+        return [
+            'points' => $count,
+            'min' => (int) min($values),
+            'max' => (int) max($values),
+            'avg' => $count > 0 ? ($sum / $count) : 0.0,
+        ];
     }
 
     private static function format_delta(array $delta): string

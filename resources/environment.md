@@ -3,6 +3,13 @@
 ## Purpose
 This document describes where project files live, where the WordPress test environment is located, and which container/dev tooling is currently available.
 
+## Start Here Next Session (Important)
+1. Open this repo for source edits:
+	- `C:\Users\info\OneDrive\Documents\Working Files\Projects\WordPress plugins\MarkdownAI Converter`
+2. Confirm the plugin copy WordPress is actually executing:
+	- `C:\Users\info\OneDrive\Documents\Working Files\Projects\WordPress plugins\WordPress Development Environment\wp-content\plugins\markdownai-converter`
+3. If behavior in wp-admin does not match repo code, compare/sync these two locations before debugging features.
+
 ## Project Locations
 
 ### Plugin source workspace (authoring)
@@ -71,6 +78,11 @@ Current sync pattern used during development:
 2. Copy all files into WordPress test environment plugin folder.
 3. Activate plugin in wp-admin and test.
 
+### Verified difference discovered on 2026-02-23
+- WordPress was running the plugin from the `WordPress Development Environment\wp-content\plugins\markdownai-converter` folder while some edits were being made only in the source repo folder.
+- This caused "changes not visible" confusion until files were synced.
+- Treat the WP deploy target path as source-of-truth for runtime behavior.
+
 PowerShell command used:
 ```powershell
 $source = "C:\Users\info\OneDrive\Documents\Working Files\Projects\WordPress plugins\MarkdownAI Converter"
@@ -85,6 +97,11 @@ Copy-Item -Path (Join-Path $source '*') -Destination $dest -Recurse -Force
 - REST markdown endpoint is public for published/viewable posts only.
 - Bot tracking can be disabled in plugin Settings.
 - Retention window defaults to 90 days and is enforceable by cron cleanup.
+- Native PDF depends on bundled vendor library presence; if unavailable, UI falls back to printable HTML report flow.
+
+## Tooling Notes (Current Machine)
+- `composer` is not available in the current host shell.
+- Practical implication: dependency installation/bundling should be done in a container/devcontainer/CI build step, then shipped with release artifacts as needed.
 
 ## Security Notes
 - Admin actions use nonces and capability checks.

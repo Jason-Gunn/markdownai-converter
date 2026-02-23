@@ -8,6 +8,14 @@ if (! defined('ABSPATH')) {
 
 class Installer
 {
+    public static function maybe_upgrade_schema(): void
+    {
+        $currentDbVersion = (string) get_option(Plugin::OPTION_DB_VERSION, '0');
+        if (version_compare($currentDbVersion, Plugin::DB_VERSION, '<')) {
+            self::install_or_upgrade();
+        }
+    }
+
     public static function install_or_upgrade(): void
     {
         global $wpdb;
@@ -38,6 +46,7 @@ class Installer
             user_agent VARCHAR(512) NOT NULL,
             ip_hash CHAR(64) NOT NULL,
             endpoint VARCHAR(255) NOT NULL,
+            search_term VARCHAR(255) NULL,
             post_id BIGINT UNSIGNED NULL,
             status_code SMALLINT UNSIGNED NOT NULL,
             bytes_sent BIGINT UNSIGNED NOT NULL DEFAULT 0,
@@ -46,6 +55,7 @@ class Installer
             PRIMARY KEY (id),
             KEY event_time_idx (event_time),
             KEY bot_family_idx (bot_family),
+            KEY search_term_idx (search_term),
             KEY post_id_idx (post_id)
         ) {$charsetCollate};";
 

@@ -215,7 +215,43 @@ Use these thematic commits for cleaner history:
   - bot family breakdown (hits/share/latency)
   - included in both Overview dashboard and printable report output
 
+## Additional Progress (2026-02-23, later session)
+
+### Completed feature work
+- Added report branding support (brand name, logo URL, accent color) in settings and report output.
+- Added best-effort bot search-intent capture (`q/query/search/term/prompt` from request/referer when available).
+- Extended bot activity + CSV/report payloads to include captured `search_term` where present.
+- Improved Daily Crawl Trend rendering:
+  - added denser grid/tick guidance
+  - improved dark-mode compatibility
+  - added visible trend summary stats (points/min/max/avg) under chart.
+- Added native PDF generation service integration path (Dompdf-based) with graceful fallback.
+
+### Runtime/environment issue resolved
+- Root cause identified for "changes not appearing": two plugin copies existed.
+  - Authoring repo: `...\MarkdownAI Converter`
+  - Active runtime copy: `...\WordPress Development Environment\wp-content\plugins\markdownai-converter`
+- Synced latest repo edits into active runtime plugin directory.
+- Patched active copy directly for:
+  - Daily Crawl Trend dark-mode fixes
+  - Bot Activity endpoint link normalization.
+
+### UX hardening for self-contained installs
+- Removed end-user expectation to run Composer in wp-admin messaging.
+- Export & Reports now conditionally shows native PDF button only when PDF library is already available.
+- Printable HTML report remains the always-available default PDF pathway (browser Save as PDF).
+
+### What is still pending (next session)
+1. Package strategy for native PDF:
+   - define build/release process that bundles `vendor` for distribution artifacts (if native PDF should be universally available).
+2. Add release packaging docs:
+   - explicit steps for producing a self-contained zip from CI/devcontainer.
+3. Optional: add runtime diagnostics panel/snippet showing active plugin path/version to avoid future dual-path confusion.
+
 ### Next Recommended Expansion
 1. Add testability seams for analytics/report classes that currently depend on global WP runtime.
 2. Add PHPStan and PHPCS jobs in CI.
 3. Add integration tests for admin-post actions and REST endpoint behavior.
+
+## Suggested Next Session Prompt (updated)
+"Continue from resources/dev-updates.md. First verify active runtime plugin path vs source repo path, then implement release packaging so native PDF dependencies are bundled for self-contained installs. Keep browser print-to-PDF as fallback and maintain existing admin security checks."
