@@ -2,6 +2,8 @@
 
 MarkdownAI Converter is a WordPress plugin that converts published content into structured Markdown and provides AI-crawl analytics for publishers, agencies, and SEO teams.
 
+> ✏️ Note: This is installable and useable, but not feature complete. Use with caution.
+
 ## Core Features
 
 - Markdown conversion for published posts/pages/CPT content.
@@ -47,6 +49,28 @@ MarkdownAI Converter is a WordPress plugin that converts published content into 
 
 For full validation, use:
 - `resources/testing-checklist.md`
+
+## Development Testing
+
+Local unit test setup:
+
+1. Install dependencies:
+  - `composer install`
+2. Run tests:
+  - `composer test`
+
+Current test coverage includes:
+- Bot user-agent family detection behavior.
+- Date range sanitization logic for analytics.
+
+## CI
+
+GitHub Actions workflow:
+- `.github/workflows/ci.yml`
+
+Runs on push/PR to `main` and executes:
+- dependency install via Composer
+- PHPUnit suite
 
 ## Project Docs
 

@@ -198,3 +198,20 @@ Use these thematic commits for cleaner history:
   - Workspace diagnostics clean via editor checks.
   - GitHub repo and branch are active (`main`).
   - CLI `php` executable unavailable in current shell, so `php -l` must be run in container/devcontainer for final CLI lint confirmation.
+
+## Post-v0.1.0 Progress (2026-02-23)
+- Added initial automated test baseline:
+  - `composer.json`
+  - `phpunit.xml`
+  - `tests/bootstrap.php`
+  - `tests/BotDetectorTest.php`
+  - `tests/AnalyticsDateRangeTest.php`
+- Added GitHub Actions CI workflow:
+  - `.github/workflows/ci.yml`
+  - Runs Composer install + PHPUnit on push/PR to `main`.
+- Updated README with test/CI instructions.
+
+### Next Recommended Expansion
+1. Add testability seams for analytics/report classes that currently depend on global WP runtime.
+2. Add PHPStan and PHPCS jobs in CI.
+3. Add integration tests for admin-post actions and REST endpoint behavior.
