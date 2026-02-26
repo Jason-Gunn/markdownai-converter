@@ -55,9 +55,6 @@ MarkdownAI Converter is a WordPress plugin that converts published content into 
 - Browser print-to-PDF is always available via **Generate Printable Report (HTML)**.
 - Native PDF download appears automatically only in builds that include the bundled PDF library.
 
-For full validation, use:
-- `resources/testing-checklist.md`
-
 ## Development Testing
 
 Local unit test setup:
@@ -79,13 +76,6 @@ GitHub Actions workflow:
 Runs on push/PR to `main` and executes:
 - dependency install via Composer
 - PHPUnit suite
-
-## Project Docs
-
-- Product spec: `resources/specifications.md`
-- Environment map: `resources/environment.md`
-- Development handoff log: `resources/dev-updates.md`
-- Testing checklist: `resources/testing-checklist.md`
 
 ## License
 

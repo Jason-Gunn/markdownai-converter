@@ -16,6 +16,7 @@ wp-content/cache/
 # Build / coverage
 coverage/
 .phpunit.result.cache
+resources/
 
 # Environment files
 .env
