@@ -72,6 +72,8 @@ class Rest
             $refererHost = is_string($parsedHost) ? $parsedHost : '';
         }
 
+        $searchTerm = self::extract_search_term($requestUri, $referer);
+
         Bot_Tracker::track_event([
             'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? (string) wp_unslash($_SERVER['HTTP_USER_AGENT']) : '',
             'bot_family' => Bot_Detector::detect_family(isset($_SERVER['HTTP_USER_AGENT']) ? (string) wp_unslash($_SERVER['HTTP_USER_AGENT']) : ''),
@@ -81,6 +83,60 @@ class Rest
             'bytes_sent' => strlen($markdown),
             'latency_ms' => (int) round((microtime(true) - $startTime) * 1000),
             'referer_host' => $refererHost,
+            'search_term' => $searchTerm,
         ]);
+    }
+
+    private static function extract_search_term(string $requestUri, string $referer): string
+    {
+        $paramKeys = ['q', 'query', 'search', 'term', 'prompt'];
+
+        $candidates = [
+            self::parse_query_value_from_url($requestUri, $paramKeys),
+            self::parse_query_value_from_url($referer, $paramKeys),
+        ];
+
+        foreach ($candidates as $value) {
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return '';
+    }
+
+    private static function parse_query_value_from_url(string $urlOrPath, array $keys): string
+    {
+        if ($urlOrPath === '') {
+            return '';
+        }
+
+        $query = wp_parse_url($urlOrPath, PHP_URL_QUERY);
+        if (! is_string($query) || $query === '') {
+            return '';
+        }
+
+        parse_str($query, $params);
+        if (! is_array($params)) {
+            return '';
+        }
+
+        foreach ($keys as $key) {
+            if (! isset($params[$key])) {
+                continue;
+            }
+
+            $value = $params[$key];
+            if (is_array($value)) {
+                $value = implode(' ', array_map('strval', $value));
+            }
+
+            $value = sanitize_text_field((string) $value);
+            if ($value !== '') {
+                return mb_substr($value, 0, 255);
+            }
+        }
+
+        return '';
     }
 }

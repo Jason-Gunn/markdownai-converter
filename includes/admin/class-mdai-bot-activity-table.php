@@ -26,6 +26,7 @@ class Bot_Activity_Table extends \WP_List_Table
         return [
             'event_time' => __('Timestamp (UTC)', 'markdownai-converter'),
             'bot_family' => __('Bot Family', 'markdownai-converter'),
+            'search_term' => __('Search Term', 'markdownai-converter'),
             'post_id' => __('Post ID', 'markdownai-converter'),
             'status_code' => __('Status', 'markdownai-converter'),
             'latency_ms' => __('Latency (ms)', 'markdownai-converter'),
@@ -51,6 +52,7 @@ class Bot_Activity_Table extends \WP_List_Table
         switch ($columnName) {
             case 'event_time':
             case 'bot_family':
+            case 'search_term':
             case 'status_code':
             case 'latency_ms':
             case 'bytes_sent':
@@ -62,10 +64,32 @@ class Bot_Activity_Table extends \WP_List_Table
                 if ($endpoint === '') {
                     return '—';
                 }
-                return sprintf('<a href="%s" target="_blank" rel="noopener noreferrer">%s</a>', esc_url($endpoint), esc_html($endpoint));
+
+                $resolvedEndpoint = self::resolve_endpoint_url($endpoint);
+                return sprintf('<a href="%s" target="_blank" rel="noopener noreferrer">%s</a>', esc_url($resolvedEndpoint), esc_html($endpoint));
             default:
                 return '';
         }
+    }
+
+    private static function resolve_endpoint_url(string $endpoint): string
+    {
+        $trimmed = trim($endpoint);
+        if ($trimmed === '') {
+            return '';
+        }
+
+        if (preg_match('#^https?://#i', $trimmed) === 1) {
+            return $trimmed;
+        }
+
+        $normalized = ltrim($trimmed, '/');
+
+        if (strpos($normalized, 'mdai/v1/') === 0) {
+            return rest_url($normalized);
+        }
+
+        return home_url('/' . $normalized);
     }
 
     protected function get_views(): array
@@ -144,7 +168,7 @@ class Bot_Activity_Table extends \WP_List_Table
         $countQuery = $params !== [] ? $wpdb->prepare($countSql, ...$params) : $countSql;
         $totalItems = (int) $wpdb->get_var($countQuery);
 
-        $dataSql = "SELECT id, event_time, bot_family, post_id, status_code, latency_ms, bytes_sent, endpoint
+        $dataSql = "SELECT id, event_time, bot_family, search_term, post_id, status_code, latency_ms, bytes_sent, endpoint
             FROM {$table}
             {$where}
             ORDER BY {$orderby} {$order}
