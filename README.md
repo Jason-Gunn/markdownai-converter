@@ -2,7 +2,7 @@
 
 MarkdownAI Converter is a WordPress plugin that converts published content into structured Markdown and provides AI-crawl analytics for publishers, agencies, and SEO teams.
 
-> ✏️ Note: This is installable and useable, but not feature complete. Use with caution.
+> ✏️ Note: This is kind of deprecated, since I'll be adding this functionality to the upcoming [SAIGES](https://www.dialogisticindustries.com/solutions/software/saiges) content suite I'm working on. It's installable and useable, but not feature complete. Use with caution.
 
 ## Core Features
 
@@ -16,6 +16,7 @@ MarkdownAI Converter is a WordPress plugin that converts published content into 
 - Bot Activity page with filtering, sorting, and CSV export.
 - Rule-based content suggestions and scoring for optimization.
 - Export & Reports page with printable client performance report (PDF-ready via browser print).
+- Optional native PDF download support when the PDF library is bundled in the plugin build.
 - Weekly email performance summaries (configurable recipient + schedule).
 - Period-over-period KPI deltas on Overview.
 - Manual “Send Test Weekly Report Now” action for instant email validation.
@@ -48,8 +49,11 @@ MarkdownAI Converter is a WordPress plugin that converts published content into 
 4. Open **Suggestions** and analyze a page.
 5. Open **Export & Reports** and generate a printable report.
 
-For full validation, use:
-- `resources/testing-checklist.md`
+## PDF Export Notes
+
+- End users should not need to install Composer or PHP libraries manually.
+- Browser print-to-PDF is always available via **Generate Printable Report (HTML)**.
+- Native PDF download appears automatically only in builds that include the bundled PDF library.
 
 ## Development Testing
 
@@ -72,13 +76,6 @@ GitHub Actions workflow:
 Runs on push/PR to `main` and executes:
 - dependency install via Composer
 - PHPUnit suite
-
-## Project Docs
-
-- Product spec: `resources/specifications.md`
-- Environment map: `resources/environment.md`
-- Development handoff log: `resources/dev-updates.md`
-- Testing checklist: `resources/testing-checklist.md`
 
 ## License
 
