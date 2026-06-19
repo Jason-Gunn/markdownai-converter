@@ -17,6 +17,9 @@ wp-content/cache/
 coverage/
 .phpunit.result.cache
 
+# Local-only project notes and handoff docs
+resources/
+
 # Environment files
 .env
 .env.*
