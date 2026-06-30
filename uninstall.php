@@ -21,13 +21,11 @@ $tableSuffixes = [
 
 $tablePrefix = preg_replace('/[^A-Za-z0-9_]/', '', (string) $wpdb->prefix);
 
-if (! is_string($tablePrefix) || $tablePrefix === '') {
-    return;
-}
-
-foreach ($tableSuffixes as $tableSuffix) {
-    $tableName = $tablePrefix . $tableSuffix;
-    $wpdb->query("DROP TABLE IF EXISTS `{$tableName}`");
+if (is_string($tablePrefix) && $tablePrefix !== '') {
+    foreach ($tableSuffixes as $tableSuffix) {
+        $tableName = $tablePrefix . $tableSuffix;
+        $wpdb->query("DROP TABLE IF EXISTS `{$tableName}`");
+    }
 }
 
 delete_option('mdai_settings');
