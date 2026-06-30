@@ -36,6 +36,12 @@ class Rest
             return $response;
         }
 
+        if (self::is_password_protected_post($post)) {
+            $response = new \WP_REST_Response(['message' => 'Forbidden'], 403);
+            self::track_request($postId, 403, $start, '');
+            return $response;
+        }
+
         if (! is_post_type_viewable($post->post_type)) {
             $response = new \WP_REST_Response(['message' => 'Forbidden'], 403);
             self::track_request($postId, 403, $start, '');
@@ -85,6 +91,11 @@ class Rest
             'referer_host' => $refererHost,
             'search_term' => $searchTerm,
         ]);
+    }
+
+    private static function is_password_protected_post(\WP_Post $post): bool
+    {
+        return trim((string) $post->post_password) !== '';
     }
 
     private static function extract_search_term(string $requestUri, string $referer): string

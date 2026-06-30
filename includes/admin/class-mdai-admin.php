@@ -569,16 +569,16 @@ class Admin
         if (is_array($rows)) {
             foreach ($rows as $row) {
                 fputcsv($output, [
-                    (string) ($row['event_time'] ?? ''),
-                    (string) ($row['bot_family'] ?? ''),
-                    (string) ($row['user_agent'] ?? ''),
-                    (string) ($row['search_term'] ?? ''),
-                    (string) ($row['post_id'] ?? ''),
-                    (string) ($row['status_code'] ?? ''),
-                    (string) ($row['latency_ms'] ?? ''),
-                    (string) ($row['bytes_sent'] ?? ''),
-                    (string) ($row['endpoint'] ?? ''),
-                    (string) ($row['referer_host'] ?? ''),
+                    self::escape_csv_cell((string) ($row['event_time'] ?? '')),
+                    self::escape_csv_cell((string) ($row['bot_family'] ?? '')),
+                    self::escape_csv_cell((string) ($row['user_agent'] ?? '')),
+                    self::escape_csv_cell((string) ($row['search_term'] ?? '')),
+                    self::escape_csv_cell((string) ($row['post_id'] ?? '')),
+                    self::escape_csv_cell((string) ($row['status_code'] ?? '')),
+                    self::escape_csv_cell((string) ($row['latency_ms'] ?? '')),
+                    self::escape_csv_cell((string) ($row['bytes_sent'] ?? '')),
+                    self::escape_csv_cell((string) ($row['endpoint'] ?? '')),
+                    self::escape_csv_cell((string) ($row['referer_host'] ?? '')),
                 ]);
             }
         }
@@ -1129,6 +1129,19 @@ class Admin
             <p><?php echo esc_html($description); ?></p>
         </div>
         <?php
+    }
+
+    private static function escape_csv_cell(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+
+        if (preg_match('/^\s*[=+\-@]/', $value) === 1 || preg_match('/^[\t\r\n]/', $value) === 1) {
+            return "'" . $value;
+        }
+
+        return $value;
     }
 
     private static function build_trend_svg(array $trend): string

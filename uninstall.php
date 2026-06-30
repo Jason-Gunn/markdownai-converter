@@ -13,14 +13,21 @@ if (! $deleteData) {
 
 global $wpdb;
 
-$tables = [
-    $wpdb->prefix . 'mdai_content_cache',
-    $wpdb->prefix . 'mdai_bot_events',
-    $wpdb->prefix . 'mdai_daily_aggregates',
+$tableSuffixes = [
+    'mdai_content_cache',
+    'mdai_bot_events',
+    'mdai_daily_aggregates',
 ];
 
-foreach ($tables as $tableName) {
-    $wpdb->query("DROP TABLE IF EXISTS {$tableName}");
+$tablePrefix = preg_replace('/[^A-Za-z0-9_]/', '', (string) $wpdb->prefix);
+
+if (! is_string($tablePrefix) || $tablePrefix === '') {
+    return;
+}
+
+foreach ($tableSuffixes as $tableSuffix) {
+    $tableName = $tablePrefix . $tableSuffix;
+    $wpdb->query("DROP TABLE IF EXISTS `{$tableName}`");
 }
 
 delete_option('mdai_settings');
